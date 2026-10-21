@@ -10,7 +10,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
 <style>
-/* Layout: one full-screen panel per step; the main action is always the biggest thing on screen. */
+/* Layout: one full-screen panel per step; the main action is always the biggest thing on screen.
+   Fixed corners: sound (top-left), carer settings (top-right, hold), start again (bottom-right). */
 :root {
   --bg: #f4f6f2;
   --panel: #ffffff;
@@ -37,7 +38,7 @@ body {
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
   overflow: hidden;
 }
-.screen { height: 100%; display: none; flex-direction: column; gap: 16px; }
+.screen { height: 100%; display: none; flex-direction: column; gap: 16px; padding-top: 52px; padding-bottom: 92px; }
 .screen.on { display: flex; }
 button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
@@ -55,6 +56,7 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
 .meter { width: min(80%, 520px); height: 22px; border-radius: 11px; background: rgba(255,255,255,.3); overflow: hidden; }
 .meter i { display: block; height: 100%; width: 0%; background: #fff; border-radius: 11px; transition: width 80ms linear; }
 .heard { font-size: 1.3rem; min-height: 1.6em; }
+.micname { font-size: 1rem; opacity: .8; }
 
 .said { font-size: clamp(2rem, 6vw, 3.8rem); line-height: 1.2; font-weight: 700; text-wrap: balance; }
 .row { display: flex; gap: 16px; flex-wrap: wrap; }
@@ -62,9 +64,10 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
 .say { background: var(--go); color: var(--go-ink); }
 .again { background: var(--soft); color: var(--ink); border: 2px solid var(--line); }
 
-.favs { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.favs { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; padding-right: 210px; }
 .favs button { flex: 0 0 auto; background: var(--panel); border: 2px solid var(--line); border-radius: 18px;
   padding: 18px 22px; font-size: 1.35rem; max-width: 22ch; text-align: left; }
+.favs button.help { background: var(--listen); color: #fff; border-color: var(--listen); font-weight: 700; }
 .label { font-size: .95rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 
 .spinner { width: 72px; height: 72px; border-radius: 50%; border: 8px solid var(--soft); border-top-color: var(--go); animation: spin 1s linear infinite; }
@@ -73,22 +76,37 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
 @keyframes pulse { 50% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .spinner, .pulse { animation: none; } }
 
+/* Fixed corner controls */
 .gear { position: fixed; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right));
   width: 44px; height: 44px; border-radius: 50%; background: transparent; color: var(--muted); font-size: 1.4rem; opacity: .5; }
+.soundbtn { position: fixed; top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left));
+  height: 44px; padding: 0 14px; border-radius: 22px; background: var(--panel); border: 2px solid var(--line);
+  color: var(--ink); font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+.soundbtn .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.soundbtn .dot.usb { background: var(--go); }
+.home { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom));
+  min-width: 190px; height: 76px; padding: 0 22px; border-radius: 22px; background: var(--ink); color: var(--bg);
+  font-size: 1.45rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 5; }
 
-/* Carer settings */
-.settings { overflow-y: auto; -webkit-user-select: text; user-select: text; }
+/* Carer settings and sound panel */
+.settings { overflow-y: auto; -webkit-user-select: text; user-select: text; padding-top: 0; padding-bottom: 0; }
 .settings .card { background: var(--panel); border: 2px solid var(--line); border-radius: 20px; padding: 20px; display: grid; gap: 14px; max-width: 720px; width: 100%; margin: 0 auto; }
 .settings h2 { margin: 0; font-size: 1.6rem; }
+.settings h3 { margin: 8px 0 0; font-size: 1.2rem; }
 .settings label { display: grid; gap: 6px; font-size: 1.05rem; }
-.settings input[type=text], .settings input[type=password], .settings textarea {
+.settings input[type=text], .settings input[type=password], .settings textarea, .settings select {
   font: inherit; font-size: 1.1rem; padding: 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
 .settings textarea { min-height: 150px; }
+.settings input[type=range] { width: 100%; height: 40px; accent-color: var(--go); }
 .check { display: flex !important; align-items: center; gap: 10px; grid-template-columns: none; }
 .check input { width: 26px; height: 26px; }
 .settings .row > button { min-height: 64px; font-size: 1.2rem; }
 .status { font-size: 1.05rem; color: var(--muted); min-height: 1.4em; }
 .hint { font-size: .95rem; color: var(--muted); margin: 0; }
+.val { float: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.testmeter { height: 18px; border-radius: 9px; background: var(--soft); overflow: hidden; }
+.testmeter i { display: block; height: 100%; width: 0%; background: var(--go); transition: width 80ms linear; }
 </style>
 </head>
 <body>
@@ -100,8 +118,8 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     <p>Then whisper what you want to say</p>
   </button>
   <div>
-    <div class="label" id="fav-label">Quick words</div>
-    <div class="favs" id="favs"></div>
+    <div class="label fav-label">Quick words</div>
+    <div class="favs"></div>
   </div>
 </section>
 
@@ -112,6 +130,7 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     <div class="meter" aria-hidden="true"><i id="meter"></i></div>
     <div class="heard" id="heard">&nbsp;</div>
     <p>Tap when you’ve finished</p>
+    <div class="micname" id="micname"></div>
   </button>
 </section>
 
@@ -126,7 +145,7 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
 <!-- 4. Confirm -->
 <section class="screen" id="s-confirm">
   <div class="big calm"><div class="said" id="said"></div></div>
-  <div class="row">
+  <div class="row" style="padding-right:210px">
     <button class="again" id="btn-again">Try again</button>
     <button class="say" id="btn-say">Say it</button>
   </div>
@@ -137,12 +156,42 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
   <div class="big calm"><div class="said pulse" id="speaking"></div></div>
 </section>
 
-<!-- Problem -->
+<!-- Problem: still offers quick words so she can just say "help" -->
 <section class="screen" id="s-error">
   <button class="big calm" id="btn-error">
     <h1 id="err-title">I didn’t catch that</h1>
     <p id="err-msg">Tap to try again</p>
   </button>
+  <div>
+    <div class="label fav-label">Or tap one of these</div>
+    <div class="favs"></div>
+  </div>
+</section>
+
+<!-- Sound panel (top-left) -->
+<section class="screen settings" id="s-sound">
+  <div class="card">
+    <h2>Sound</h2>
+    <label>Microphone
+      <select id="snd-mic"></select>
+    </label>
+    <div class="status" id="snd-status"></div>
+    <div class="testmeter" aria-hidden="true"><i id="snd-meter"></i></div>
+    <p class="hint">Whisper now. The green bar should move about halfway.</p>
+    <label>Microphone boost <span class="val" id="snd-gain-v"></span>
+      <input type="range" id="snd-gain" min="0.5" max="6" step="0.25">
+    </label>
+    <label class="check"><input type="checkbox" id="snd-agc"> Automatic level (evens out loud and quiet)</label>
+    <label class="check"><input type="checkbox" id="snd-ns"> Reduce background noise</label>
+    <label>Voice volume <span class="val" id="snd-vol-v"></span>
+      <input type="range" id="snd-vol" min="0.5" max="2.5" step="0.1">
+    </label>
+    <p class="hint">Turn the tablet’s own volume up fully first. This boosts it further.</p>
+    <div class="row">
+      <button class="again" id="snd-test">Play a test</button>
+      <button class="say" id="snd-close">Done</button>
+    </div>
+  </div>
 </section>
 
 <!-- Carer settings (hold the corner button for 2 seconds) -->
@@ -157,6 +206,17 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
       <input type="password" id="set-pass" autocomplete="off">
     </label>
     <label class="check"><input type="checkbox" id="set-auto"> Speak straight away (skip the “Say it” check)</label>
+    <h3>How her voice sounds</h3>
+    <label>Tone
+      <select id="set-tone">
+        <option value="calm">Calm and steady</option>
+        <option value="natural">Natural</option>
+        <option value="expressive">Expressive (closest to the story recording)</option>
+      </select>
+    </label>
+    <label>Speed <span class="val" id="set-speed-v"></span>
+      <input type="range" id="set-speed" min="0.8" max="1.15" step="0.05">
+    </label>
     <label>Quick words, one per line
       <textarea id="set-favs"></textarea>
     </label>
@@ -165,17 +225,21 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
       <button class="again" id="btn-test">Test connection</button>
       <button class="say" id="btn-save">Save and close</button>
     </div>
-    <p class="hint">A switch or Bluetooth button works too. Space, Enter, Page Down or → does the main action. ← or Page Up means “Try again”.</p>
+    <p class="hint">A switch or Bluetooth button works too. Space, Enter, Page Down or → does the main action. ← or Page Up means “Try again”. Escape or Home goes back to the start.</p>
   </div>
 </section>
 
+<button class="soundbtn" id="soundbtn" aria-label="Sound settings"><span class="dot" id="mic-dot"></span><span id="mic-short">Sound</span></button>
 <button class="gear" id="gear" aria-label="Settings (hold)">⚙</button>
+<button class="home" id="home" aria-label="Start again">↺ Start again</button>
 <audio id="player" preload="auto"></audio>
 
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const DEFAULT_FAVS = ["Yes please", "No thank you", "I love you", "Where’s Pax?", "I’m tired", "Can you help me?"];
+  const DEFAULT_FAVS = ["I need help", "Yes please", "No thank you", "I love you", "Where’s Pax?", "I’m tired"];
+  const USB_HINT = /usb|sennheiser|lav|xs|external|headset|wired|digital/i;
+  const TONES = { calm: 1.0, natural: 0.5, expressive: 0.0 }; // ElevenLabs stability
 
   // ---- settings (kept on this tablet only) ----
   const store = {
@@ -186,15 +250,31 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     url: store.get("url", ""),
     pass: store.get("pass", ""),
     auto: store.get("auto", false),
-    favs: store.get("favs", DEFAULT_FAVS)
+    favs: store.get("favs", DEFAULT_FAVS),
+    tone: store.get("tone", "calm"),
+    speed: store.get("speed", 0.95),
+    mic: store.get("mic", "auto"),        // "auto" or a deviceId
+    micLabel: store.get("micLabel", ""),
+    gain: store.get("gain", 2),
+    agc: store.get("agc", true),
+    ns: store.get("ns", true),
+    vol: store.get("vol", 1.5)
   };
+  // One-time: make sure there is a Help button for people who saved the old list.
+  if (!store.get("helpAdded", false)) {
+    if (!cfg.favs.some(f => /help/i.test(f))) cfg.favs.unshift("I need help");
+    store.set("favs", cfg.favs); store.set("helpAdded", true);
+  }
+  const save = (...keys) => keys.forEach(k => store.set(k, cfg[k]));
 
   // ---- screens ----
   let state = "";
   function show(name) {
     state = name;
     document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === "s-" + name));
-    $("gear").hidden = (name === "settings");
+    const panel = name === "settings" || name === "sound";
+    $("gear").hidden = panel; $("soundbtn").hidden = panel;
+    $("home").hidden = panel || name === "ready";
   }
 
   // ---- bridge calls ----
@@ -212,69 +292,145 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     return r;
   }
 
-  // ---- recording ----
-  let stream, recorder, chunks = [], audioCtx, analyser, raf, maxTimer;
-  async function startListening() {
-    if (!cfg.url || !cfg.pass) { openSettings("Add the bridge address and passcode first."); return; }
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
-      });
-    } catch (e) {
-      return fail("The microphone isn’t on", "Ask someone to allow the microphone, then tap here");
+  // ---- microphone ----
+  async function listMics() {
+    try { return (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput"); }
+    catch { return []; }
+  }
+  // Choose which input to ask for: saved choice, else anything that looks like the USB lav mic.
+  async function pickMicId() {
+    const mics = await listMics();
+    if (cfg.mic !== "auto") {
+      const byId = mics.find(m => m.deviceId === cfg.mic);
+      if (byId) return byId.deviceId;
+      const byLabel = cfg.micLabel && mics.find(m => m.label === cfg.micLabel);
+      if (byLabel) { cfg.mic = byLabel.deviceId; save("mic"); return byLabel.deviceId; }
     }
-    const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
-    recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
-    chunks = [];
-    recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
-    recorder.onstop = transcribe;
-    recorder.start();
-    startMeter();
-    show("listen");
-    maxTimer = setTimeout(stopListening, 60000); // never record more than a minute
+    const usb = mics.find(m => m.label && USB_HINT.test(m.label) && !/^default$|communications/i.test(m.deviceId));
+    return usb ? usb.deviceId : null;
+  }
+  async function openMic() {
+    const base = { echoCancellation: false, noiseSuppression: cfg.ns, autoGainControl: cfg.agc, channelCount: 1 };
+    const id = await pickMicId();
+    let raw;
+    try {
+      raw = await navigator.mediaDevices.getUserMedia({ audio: id ? { ...base, deviceId: { exact: id } } : base });
+    } catch (e) {
+      if (!id) throw e;
+      raw = await navigator.mediaDevices.getUserMedia({ audio: base }); // chosen mic gone: use whatever is there
+    }
+    // First time permission is granted, labels appear: try again to land on the USB mic.
+    if (!id) {
+      const again = await pickMicId();
+      const cur = raw.getAudioTracks()[0]?.getSettings().deviceId;
+      if (again && again !== cur) {
+        raw.getTracks().forEach(t => t.stop());
+        raw = await navigator.mediaDevices.getUserMedia({ audio: { ...base, deviceId: { exact: again } } });
+      }
+    }
+    const label = raw.getAudioTracks()[0]?.label || "Microphone";
+    updateMicBadge(label);
+    return raw;
+  }
+  function updateMicBadge(label) {
+    const usb = USB_HINT.test(label);
+    $("mic-dot").classList.toggle("usb", usb);
+    $("mic-short").textContent = usb ? "USB mic" : "Tablet mic";
+    $("micname").textContent = "Using: " + label;
   }
 
-  function startMeter() {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 1024;
-    audioCtx.createMediaStreamSource(stream).connect(analyser);
+  // Mic → boost → (meter, recorder). One shared context, resumed from a tap.
+  let ctx;
+  function audioCtx() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = ctx.createMediaElementSource($("player"));
+      playGain = ctx.createGain(); playGain.gain.value = cfg.vol;
+      src.connect(playGain).connect(ctx.destination);
+    }
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    return ctx;
+  }
+  let playGain;
+
+  function chain(raw) {
+    const c = audioCtx();
+    const src = c.createMediaStreamSource(raw);
+    const gain = c.createGain(); gain.gain.value = cfg.gain;
+    const analyser = c.createAnalyser(); analyser.fftSize = 1024;
+    const dest = c.createMediaStreamDestination();
+    src.connect(gain); gain.connect(analyser); gain.connect(dest);
+    return { raw, src, gain, analyser, dest };
+  }
+  function unchain(ch) {
+    if (!ch) return;
+    try { ch.src.disconnect(); ch.gain.disconnect(); } catch {}
+    ch.raw.getTracks().forEach(t => t.stop());
+  }
+  function meterLoop(analyser, bar, onLevel) {
     const buf = new Float32Array(analyser.fftSize);
+    let id;
     const tick = () => {
       analyser.getFloatTimeDomainData(buf);
       let sum = 0; for (const v of buf) sum += v * v;
-      const level = Math.min(1, Math.sqrt(sum / buf.length) * 12);
-      $("meter").style.width = Math.round(level * 100) + "%";
-      $("heard").textContent = level > 0.12 ? "I can hear you" : " ";
-      raf = requestAnimationFrame(tick);
+      const level = Math.min(1, Math.sqrt(sum / buf.length) * 10);
+      bar.style.width = Math.round(level * 100) + "%";
+      onLevel && onLevel(level);
+      id = requestAnimationFrame(tick);
     };
     tick();
+    return () => cancelAnimationFrame(id);
   }
 
+  // ---- recording ----
+  let rec = null;     // { ch, recorder, chunks, stopMeter, timer, cancelled }
+  let job = 0;        // bumps whenever we go back to the start, so late replies are ignored
+  async function startListening() {
+    if (!cfg.url || !cfg.pass) { openSettings("Add the bridge address and passcode first."); return; }
+    stopAudio(); audioCtx();
+    let ch;
+    try { ch = chain(await openMic()); }
+    catch (e) { return fail("The microphone isn’t on", "Ask someone to allow the microphone, then tap here"); }
+    const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
+    const recorder = new MediaRecorder(ch.dest.stream, type ? { mimeType: type } : undefined);
+    const r = rec = { ch, recorder, chunks: [], cancelled: false, job: ++job };
+    recorder.ondataavailable = e => e.data.size && r.chunks.push(e.data);
+    recorder.onstop = () => { unchain(ch); if (!r.cancelled) transcribe(r); };
+    recorder.start();
+    r.stopMeter = meterLoop(ch.analyser, $("meter"), lv => { $("heard").textContent = lv > 0.12 ? "I can hear you" : " "; });
+    r.timer = setTimeout(stopListening, 60000); // never record more than a minute
+    show("listen");
+  }
   function stopListening() {
-    clearTimeout(maxTimer);
-    cancelAnimationFrame(raf);
-    if (audioCtx) audioCtx.close().catch(() => {});
-    if (recorder && recorder.state === "recording") recorder.stop();
-    if (stream) stream.getTracks().forEach(t => t.stop());
+    const r = rec; if (!r) return;
+    clearTimeout(r.timer); r.stopMeter && r.stopMeter();
+    if (r.recorder.state === "recording") r.recorder.stop();
     $("wait-msg").textContent = "Just a moment";
     show("wait");
   }
+  function cancelRecording() {
+    const r = rec; if (!r) return;
+    r.cancelled = true; clearTimeout(r.timer); r.stopMeter && r.stopMeter();
+    if (r.recorder.state === "recording") r.recorder.stop(); else unchain(r.ch);
+    rec = null;
+  }
 
-  async function transcribe() {
-    const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+  async function transcribe(r) {
+    rec = null;
+    const blob = new Blob(r.chunks, { type: r.recorder.mimeType || "audio/webm" });
     if (blob.size < 2000) return fail("That was very short", "Tap to try again");
-    const ext = (recorder.mimeType || "").includes("mp4") ? "m4a" : "webm";
+    const ext = (r.recorder.mimeType || "").includes("mp4") ? "m4a" : "webm";
     const form = new FormData();
     form.append("file", blob, "whisper." + ext);
     form.append("language", "en");
     try {
-      const r = await bridge("transcribe", form, false);
-      const { text } = await r.json();
+      const res = await bridge("transcribe", form, false);
+      const { text } = await res.json();
+      if (r.job !== job) return; // she pressed Start again meanwhile
       if (!text) return fail("I didn’t catch that", "Tap to try again");
       if (cfg.auto) speak(text); else confirm(text);
     } catch (e) {
-      fail("Something went wrong", "Tap to try again. (" + e.message + ")");
+      if (r.job === job) fail("Something went wrong", "Tap to try again. (" + e.message + ")");
     }
   }
 
@@ -283,56 +439,127 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
   function confirm(text) { pending = text; $("said").textContent = text; show("confirm"); }
 
   const cache = new Map();
+  function voiceSettings() { return { stability: TONES[cfg.tone] ?? 1, speed: cfg.speed }; }
   async function speak(text) {
+    audioCtx();
+    const my = ++job;
     $("speaking").textContent = text;
     show("speak");
     try {
-      let url = cache.get(text);
+      const key = text + "|" + cfg.tone + "|" + cfg.speed;
+      let url = cache.get(key);
       if (!url) {
-        const r = await bridge("speak", { text }, true);
+        const r = await bridge("speak", { text, voice_settings: voiceSettings() }, true);
         url = URL.createObjectURL(await r.blob());
-        if (cfg.favs.includes(text)) cache.set(text, url);
+        if (cfg.favs.includes(text)) cache.set(key, url);
       }
+      if (my !== job) return;
       const p = $("player");
       p.src = url;
-      p.onended = () => show("ready");
-      p.onerror = () => fail("The sound didn’t play", "Tap to try again");
+      p.onended = () => { if (my === job) show("ready"); };
+      p.onerror = () => { if (my === job) fail("The sound didn’t play", "Tap to try again"); };
       await p.play();
     } catch (e) {
-      fail("Something went wrong", "Tap to try again. (" + e.message + ")");
+      if (my === job) fail("Something went wrong", "Tap to try again. (" + e.message + ")");
     }
   }
+  function stopAudio() { const p = $("player"); try { p.pause(); } catch {} }
 
   function fail(title, msg) {
     $("err-title").textContent = title; $("err-msg").textContent = msg; show("error");
   }
 
-  // ---- quick words ----
-  function renderFavs() {
-    const box = $("favs"); box.innerHTML = "";
-    cfg.favs.forEach(t => {
-      const b = document.createElement("button"); b.textContent = t;
-      b.addEventListener("click", () => speak(t));
-      box.appendChild(b);
-    });
-    $("fav-label").hidden = cfg.favs.length === 0;
+  // ---- start again (bottom-right) ----
+  function goHome() {
+    job++; cancelRecording(); stopAudio(); show("ready");
   }
 
-  // ---- settings ----
+  // ---- quick words ----
+  function renderFavs() {
+    document.querySelectorAll(".favs").forEach(box => {
+      box.innerHTML = "";
+      cfg.favs.forEach(t => {
+        const b = document.createElement("button"); b.textContent = t;
+        if (/help/i.test(t)) b.className = "help";
+        b.addEventListener("click", () => speak(t));
+        box.appendChild(b);
+      });
+    });
+    document.querySelectorAll(".fav-label").forEach(l => l.hidden = cfg.favs.length === 0);
+  }
+
+  // ---- sound panel ----
+  let soundTest = null;
+  async function openSound() {
+    goHome(); show("sound");
+    syncSoundLabels();
+    await startSoundTest();
+  }
+  async function fillMicList() {
+    const mics = await listMics();
+    const sel = $("snd-mic"); sel.innerHTML = "";
+    const auto = new Option("Automatic (use the USB mic when plugged in)", "auto"); sel.add(auto);
+    mics.forEach((m, i) => sel.add(new Option(m.label || ("Microphone " + (i + 1)), m.deviceId)));
+    sel.value = mics.some(m => m.deviceId === cfg.mic) ? cfg.mic : "auto";
+    const found = mics.filter(m => USB_HINT.test(m.label));
+    $("snd-status").textContent = !mics.length ? "No microphones found."
+      : found.length ? "USB mic found: " + found[0].label
+      : "No USB mic showing. Check it’s plugged in firmly, then wait a few seconds.";
+  }
+  async function startSoundTest() {
+    stopSoundTest();
+    try {
+      const ch = chain(await openMic());
+      soundTest = { ch, stop: meterLoop(ch.analyser, $("snd-meter")) };
+    } catch { $("snd-status").textContent = "The microphone isn’t allowed yet. Allow it when the tablet asks."; }
+    await fillMicList();
+  }
+  function stopSoundTest() {
+    if (!soundTest) return;
+    soundTest.stop(); unchain(soundTest.ch); soundTest = null;
+  }
+  function syncSoundLabels() {
+    $("snd-gain").value = cfg.gain; $("snd-gain-v").textContent = Math.round(cfg.gain * 100) + "%";
+    $("snd-vol").value = cfg.vol; $("snd-vol-v").textContent = Math.round(cfg.vol * 100) + "%";
+    $("snd-agc").checked = cfg.agc; $("snd-ns").checked = cfg.ns;
+  }
+  $("snd-mic").onchange = async e => {
+    cfg.mic = e.target.value;
+    const opt = e.target.selectedOptions[0];
+    cfg.micLabel = cfg.mic === "auto" ? "" : opt.textContent;
+    save("mic", "micLabel"); await startSoundTest();
+  };
+  $("snd-gain").oninput = e => {
+    cfg.gain = +e.target.value; save("gain"); syncSoundLabels();
+    if (soundTest) soundTest.ch.gain.gain.value = cfg.gain;
+  };
+  $("snd-vol").oninput = e => { cfg.vol = +e.target.value; save("vol"); syncSoundLabels(); if (playGain) playGain.gain.value = cfg.vol; };
+  $("snd-agc").onchange = async e => { cfg.agc = e.target.checked; save("agc"); await startSoundTest(); };
+  $("snd-ns").onchange = async e => { cfg.ns = e.target.checked; save("ns"); await startSoundTest(); };
+  $("snd-test").onclick = () => { stopSoundTest(); speak(cfg.favs[1] || "Hello"); };
+  $("snd-close").onclick = () => { stopSoundTest(); show("ready"); };
+  navigator.mediaDevices?.addEventListener?.("devicechange", () => { if (state === "sound") startSoundTest(); });
+
+  // ---- carer settings ----
   function openSettings(note) {
+    goHome();
     $("set-url").value = cfg.url; $("set-pass").value = cfg.pass;
     $("set-auto").checked = cfg.auto; $("set-favs").value = cfg.favs.join("\n");
+    $("set-tone").value = cfg.tone; $("set-speed").value = cfg.speed;
+    $("set-speed-v").textContent = Math.round(cfg.speed * 100) + "%";
     $("set-status").textContent = note || "";
     show("settings");
   }
+  $("set-speed").oninput = e => { $("set-speed-v").textContent = Math.round(e.target.value * 100) + "%"; };
   function readSettings() {
     cfg.url = $("set-url").value.trim(); cfg.pass = $("set-pass").value;
     cfg.auto = $("set-auto").checked;
+    cfg.tone = $("set-tone").value; cfg.speed = +$("set-speed").value;
     cfg.favs = $("set-favs").value.split("\n").map(s => s.trim()).filter(Boolean).slice(0, 20);
   }
   $("btn-save").onclick = () => {
     readSettings();
-    Object.entries(cfg).forEach(([k, v]) => store.set(k, v));
+    save("url", "pass", "auto", "tone", "speed", "favs");
     cache.clear(); renderFavs(); show("ready");
   };
   $("btn-test").onclick = async () => {
@@ -340,7 +567,7 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     $("set-status").textContent = "Checking…";
     try {
       const j = await (await bridge("check", {}, true)).json();
-      $("set-status").textContent = "Connected. Voice: " + j.voice;
+      $("set-status").textContent = "Connected. Voice: " + j.voice + " (" + j.tts + ")";
     } catch (e) { $("set-status").textContent = "Not connected: " + e.message; }
   };
 
@@ -355,19 +582,24 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
   $("btn-again").onclick = startListening;
   $("btn-say").onclick = () => speak(pending);
   $("btn-error").onclick = startListening;
+  $("home").onclick = goHome;
+  $("soundbtn").onclick = openSound;
 
   // ---- switches / Bluetooth buttons ----
   const MAIN = ["Space", "Enter", "NumpadEnter", "ArrowRight", "PageDown", "MediaPlayPause", "ArrowDown"];
   const BACK = ["ArrowLeft", "PageUp", "Backspace", "ArrowUp"];
+  const HOME = ["Escape", "Home", "GoBack", "BrowserBack"];
   document.addEventListener("keydown", e => {
-    if (state === "settings" || e.repeat) return;
+    if (state === "settings" || state === "sound" || e.repeat) return;
     const k = e.code || e.key;
-    if (MAIN.includes(k) || MAIN.includes(e.key)) {
+    const is = list => list.includes(k) || list.includes(e.key);
+    if (is(HOME)) { e.preventDefault(); goHome(); }
+    else if (is(MAIN)) {
       e.preventDefault();
       if (state === "ready" || state === "error") startListening();
       else if (state === "listen") stopListening();
       else if (state === "confirm") speak(pending);
-    } else if (BACK.includes(k) || BACK.includes(e.key)) {
+    } else if (is(BACK)) {
       e.preventDefault();
       if (state === "confirm") startListening();
     }
@@ -377,6 +609,12 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
   async function wake() { try { await navigator.wakeLock?.request("screen"); } catch {} }
   document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && wake());
   wake();
+
+  // Show which mic is in use on the badge, if permission was already given.
+  (async () => {
+    const id = await pickMicId(); const mics = await listMics();
+    const m = mics.find(x => x.deviceId === id); if (m && m.label) updateMicBadge(m.label);
+  })();
 
   renderFavs();
   if (!cfg.url || !cfg.pass) openSettings("First time here: add the bridge address and passcode."); else show("ready");
