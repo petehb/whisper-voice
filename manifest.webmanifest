@@ -1,0 +1,11 @@
+{
+  "name": "Gabs' Voice",
+  "short_name": "Gabs' Voice",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#f4f6f2",
+  "theme_color": "#1f3a3d",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#1f3a3d">
+<title>Gabs' Voice</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: one full-screen panel per step; the main action is always the biggest thing on screen. */
+:root {
+  --bg: #f4f6f2;
+  --panel: #ffffff;
+  --ink: #18282a;
+  --muted: #5d6e6c;
+  --go: #2f7a5b;
+  --go-ink: #ffffff;
+  --listen: #b5462f;
+  --soft: #dfe7e2;
+  --line: #c9d4cf;
+  --font: "Atkinson Hyperlegible", "Segoe UI", Roboto, Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#142022; --panel:#1d2c2e; --ink:#eef3f0; --muted:#a3b3af; --go:#3f9d76; --go-ink:#08140f;
+          --listen:#e0705a; --soft:#25383a; --line:#35494b; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font);
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+           max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+.screen { height: 100%; display: none; flex-direction: column; gap: 16px; }
+.screen.on { display: flex; }
+button { font: inherit; color: inherit; border: 0; cursor: pointer; }
+button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
+
+.big {
+  flex: 1; min-height: 0; border-radius: 28px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 18px; text-align: center; padding: 24px;
+}
+.big h1 { margin: 0; font-size: clamp(2.4rem, 7vw, 4.6rem); line-height: 1.1; text-wrap: balance; }
+.big p  { margin: 0; font-size: clamp(1.3rem, 3.4vw, 2rem); color: inherit; opacity: .85; text-wrap: balance; }
+.talk { background: var(--go); color: var(--go-ink); }
+.listening { background: var(--listen); color: #fff; }
+.calm { background: var(--panel); border: 2px solid var(--line); }
+
+.meter { width: min(80%, 520px); height: 22px; border-radius: 11px; background: rgba(255,255,255,.3); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0%; background: #fff; border-radius: 11px; transition: width 80ms linear; }
+.heard { font-size: 1.3rem; min-height: 1.6em; }
+
+.said { font-size: clamp(2rem, 6vw, 3.8rem); line-height: 1.2; font-weight: 700; text-wrap: balance; }
+.row { display: flex; gap: 16px; flex-wrap: wrap; }
+.row > button { flex: 1 1 240px; min-height: 140px; border-radius: 24px; font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 700; }
+.say { background: var(--go); color: var(--go-ink); }
+.again { background: var(--soft); color: var(--ink); border: 2px solid var(--line); }
+
+.favs { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.favs button { flex: 0 0 auto; background: var(--panel); border: 2px solid var(--line); border-radius: 18px;
+  padding: 18px 22px; font-size: 1.35rem; max-width: 22ch; text-align: left; }
+.label { font-size: .95rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+.spinner { width: 72px; height: 72px; border-radius: 50%; border: 8px solid var(--soft); border-top-color: var(--go); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.pulse { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .spinner, .pulse { animation: none; } }
+
+.gear { position: fixed; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right));
+  width: 44px; height: 44px; border-radius: 50%; background: transparent; color: var(--muted); font-size: 1.4rem; opacity: .5; }
+
+/* Carer settings */
+.settings { overflow-y: auto; -webkit-user-select: text; user-select: text; }
+.settings .card { background: var(--panel); border: 2px solid var(--line); border-radius: 20px; padding: 20px; display: grid; gap: 14px; max-width: 720px; width: 100%; margin: 0 auto; }
+.settings h2 { margin: 0; font-size: 1.6rem; }
+.settings label { display: grid; gap: 6px; font-size: 1.05rem; }
+.settings input[type=text], .settings input[type=password], .settings textarea {
+  font: inherit; font-size: 1.1rem; padding: 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
+.settings textarea { min-height: 150px; }
+.check { display: flex !important; align-items: center; gap: 10px; grid-template-columns: none; }
+.check input { width: 26px; height: 26px; }
+.settings .row > button { min-height: 64px; font-size: 1.2rem; }
+.status { font-size: 1.05rem; color: var(--muted); min-height: 1.4em; }
+.hint { font-size: .95rem; color: var(--muted); margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- 1. Ready -->
+<section class="screen" id="s-ready">
+  <button class="big talk" id="btn-talk" aria-label="Tap to talk">
+    <h1>Tap to talk</h1>
+    <p>Then whisper what you want to say</p>
+  </button>
+  <div>
+    <div class="label" id="fav-label">Quick words</div>
+    <div class="favs" id="favs"></div>
+  </div>
+</section>
+
+<!-- 2. Listening -->
+<section class="screen" id="s-listen">
+  <button class="big listening" id="btn-done" aria-label="Tap when finished">
+    <h1>Whisper as loudly as you can</h1>
+    <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+    <div class="heard" id="heard">&nbsp;</div>
+    <p>Tap when you’ve finished</p>
+  </button>
+</section>
+
+<!-- 3. Checking -->
+<section class="screen" id="s-wait">
+  <div class="big calm">
+    <div class="spinner" aria-hidden="true"></div>
+    <h1 id="wait-msg">Just a moment</h1>
+  </div>
+</section>
+
+<!-- 4. Confirm -->
+<section class="screen" id="s-confirm">
+  <div class="big calm"><div class="said" id="said"></div></div>
+  <div class="row">
+    <button class="again" id="btn-again">Try again</button>
+    <button class="say" id="btn-say">Say it</button>
+  </div>
+</section>
+
+<!-- 5. Speaking -->
+<section class="screen" id="s-speak">
+  <div class="big calm"><div class="said pulse" id="speaking"></div></div>
+</section>
+
+<!-- Problem -->
+<section class="screen" id="s-error">
+  <button class="big calm" id="btn-error">
+    <h1 id="err-title">I didn’t catch that</h1>
+    <p id="err-msg">Tap to try again</p>
+  </button>
+</section>
+
+<!-- Carer settings (hold the corner button for 2 seconds) -->
+<section class="screen settings" id="s-settings">
+  <div class="card">
+    <h2>Settings</h2>
+    <p class="hint">For Peter and carers. Gabs doesn’t need this screen.</p>
+    <label>Bridge address
+      <input type="text" id="set-url" placeholder="https://xxxx.supabase.co/functions/v1/gabs-voice" autocomplete="off" spellcheck="false">
+    </label>
+    <label>Passcode
+      <input type="password" id="set-pass" autocomplete="off">
+    </label>
+    <label class="check"><input type="checkbox" id="set-auto"> Speak straight away (skip the “Say it” check)</label>
+    <label>Quick words, one per line
+      <textarea id="set-favs"></textarea>
+    </label>
+    <div class="status" id="set-status"></div>
+    <div class="row">
+      <button class="again" id="btn-test">Test connection</button>
+      <button class="say" id="btn-save">Save and close</button>
+    </div>
+    <p class="hint">A switch or Bluetooth button works too. Space, Enter, Page Down or → does the main action. ← or Page Up means “Try again”.</p>
+  </div>
+</section>
+
+<button class="gear" id="gear" aria-label="Settings (hold)">⚙</button>
+<audio id="player" preload="auto"></audio>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const DEFAULT_FAVS = ["Yes please", "No thank you", "I love you", "Where’s Pax?", "I’m tired", "Can you help me?"];
+
+  // ---- settings (kept on this tablet only) ----
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("gv." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem("gv." + k, JSON.stringify(v)); } catch {} }
+  };
+  let cfg = {
+    url: store.get("url", ""),
+    pass: store.get("pass", ""),
+    auto: store.get("auto", false),
+    favs: store.get("favs", DEFAULT_FAVS)
+  };
+
+  // ---- screens ----
+  let state = "";
+  function show(name) {
+    state = name;
+    document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === "s-" + name));
+    $("gear").hidden = (name === "settings");
+  }
+
+  // ---- bridge calls ----
+  async function bridge(route, body, isJson) {
+    const headers = { "x-app-passcode": cfg.pass };
+    if (isJson) headers["Content-Type"] = "application/json";
+    const r = await fetch(cfg.url.replace(/\/+$/, "") + "/" + route, {
+      method: "POST", headers, body: isJson ? JSON.stringify(body) : body
+    });
+    if (!r.ok) {
+      let msg = "Error " + r.status;
+      try { const j = await r.json(); msg = j.error || msg; } catch {}
+      throw new Error(msg);
+    }
+    return r;
+  }
+
+  // ---- recording ----
+  let stream, recorder, chunks = [], audioCtx, analyser, raf, maxTimer;
+  async function startListening() {
+    if (!cfg.url || !cfg.pass) { openSettings("Add the bridge address and passcode first."); return; }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
+      });
+    } catch (e) {
+      return fail("The microphone isn’t on", "Ask someone to allow the microphone, then tap here");
+    }
+    const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
+    recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+    chunks = [];
+    recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+    recorder.onstop = transcribe;
+    recorder.start();
+    startMeter();
+    show("listen");
+    maxTimer = setTimeout(stopListening, 60000); // never record more than a minute
+  }
+
+  function startMeter() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    audioCtx.createMediaStreamSource(stream).connect(analyser);
+    const buf = new Float32Array(analyser.fftSize);
+    const tick = () => {
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0; for (const v of buf) sum += v * v;
+      const level = Math.min(1, Math.sqrt(sum / buf.length) * 12);
+      $("meter").style.width = Math.round(level * 100) + "%";
+      $("heard").textContent = level > 0.12 ? "I can hear you" : " ";
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+
+  function stopListening() {
+    clearTimeout(maxTimer);
+    cancelAnimationFrame(raf);
+    if (audioCtx) audioCtx.close().catch(() => {});
+    if (recorder && recorder.state === "recording") recorder.stop();
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    $("wait-msg").textContent = "Just a moment";
+    show("wait");
+  }
+
+  async function transcribe() {
+    const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+    if (blob.size < 2000) return fail("That was very short", "Tap to try again");
+    const ext = (recorder.mimeType || "").includes("mp4") ? "m4a" : "webm";
+    const form = new FormData();
+    form.append("file", blob, "whisper." + ext);
+    form.append("language", "en");
+    try {
+      const r = await bridge("transcribe", form, false);
+      const { text } = await r.json();
+      if (!text) return fail("I didn’t catch that", "Tap to try again");
+      if (cfg.auto) speak(text); else confirm(text);
+    } catch (e) {
+      fail("Something went wrong", "Tap to try again. (" + e.message + ")");
+    }
+  }
+
+  // ---- confirm and speak ----
+  let pending = "";
+  function confirm(text) { pending = text; $("said").textContent = text; show("confirm"); }
+
+  const cache = new Map();
+  async function speak(text) {
+    $("speaking").textContent = text;
+    show("speak");
+    try {
+      let url = cache.get(text);
+      if (!url) {
+        const r = await bridge("speak", { text }, true);
+        url = URL.createObjectURL(await r.blob());
+        if (cfg.favs.includes(text)) cache.set(text, url);
+      }
+      const p = $("player");
+      p.src = url;
+      p.onended = () => show("ready");
+      p.onerror = () => fail("The sound didn’t play", "Tap to try again");
+      await p.play();
+    } catch (e) {
+      fail("Something went wrong", "Tap to try again. (" + e.message + ")");
+    }
+  }
+
+  function fail(title, msg) {
+    $("err-title").textContent = title; $("err-msg").textContent = msg; show("error");
+  }
+
+  // ---- quick words ----
+  function renderFavs() {
+    const box = $("favs"); box.innerHTML = "";
+    cfg.favs.forEach(t => {
+      const b = document.createElement("button"); b.textContent = t;
+      b.addEventListener("click", () => speak(t));
+      box.appendChild(b);
+    });
+    $("fav-label").hidden = cfg.favs.length === 0;
+  }
+
+  // ---- settings ----
+  function openSettings(note) {
+    $("set-url").value = cfg.url; $("set-pass").value = cfg.pass;
+    $("set-auto").checked = cfg.auto; $("set-favs").value = cfg.favs.join("\n");
+    $("set-status").textContent = note || "";
+    show("settings");
+  }
+  function readSettings() {
+    cfg.url = $("set-url").value.trim(); cfg.pass = $("set-pass").value;
+    cfg.auto = $("set-auto").checked;
+    cfg.favs = $("set-favs").value.split("\n").map(s => s.trim()).filter(Boolean).slice(0, 20);
+  }
+  $("btn-save").onclick = () => {
+    readSettings();
+    Object.entries(cfg).forEach(([k, v]) => store.set(k, v));
+    cache.clear(); renderFavs(); show("ready");
+  };
+  $("btn-test").onclick = async () => {
+    readSettings();
+    $("set-status").textContent = "Checking…";
+    try {
+      const j = await (await bridge("check", {}, true)).json();
+      $("set-status").textContent = "Connected. Voice: " + j.voice;
+    } catch (e) { $("set-status").textContent = "Not connected: " + e.message; }
+  };
+
+  // Hold the gear for 2 seconds so a stray tap can't open settings.
+  let hold;
+  $("gear").addEventListener("pointerdown", () => { hold = setTimeout(() => openSettings(), 2000); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => $("gear").addEventListener(ev, () => clearTimeout(hold)));
+
+  // ---- taps ----
+  $("btn-talk").onclick = startListening;
+  $("btn-done").onclick = stopListening;
+  $("btn-again").onclick = startListening;
+  $("btn-say").onclick = () => speak(pending);
+  $("btn-error").onclick = startListening;
+
+  // ---- switches / Bluetooth buttons ----
+  const MAIN = ["Space", "Enter", "NumpadEnter", "ArrowRight", "PageDown", "MediaPlayPause", "ArrowDown"];
+  const BACK = ["ArrowLeft", "PageUp", "Backspace", "ArrowUp"];
+  document.addEventListener("keydown", e => {
+    if (state === "settings" || e.repeat) return;
+    const k = e.code || e.key;
+    if (MAIN.includes(k) || MAIN.includes(e.key)) {
+      e.preventDefault();
+      if (state === "ready" || state === "error") startListening();
+      else if (state === "listen") stopListening();
+      else if (state === "confirm") speak(pending);
+    } else if (BACK.includes(k) || BACK.includes(e.key)) {
+      e.preventDefault();
+      if (state === "confirm") startListening();
+    }
+  });
+
+  // Keep the screen awake while the app is open.
+  async function wake() { try { await navigator.wakeLock?.request("screen"); } catch {} }
+  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && wake());
+  wake();
+
+  renderFavs();
+  if (!cfg.url || !cfg.pass) openSettings("First time here: add the bridge address and passcode."); else show("ready");
+})();
+</script>
+</body>
+</html>
