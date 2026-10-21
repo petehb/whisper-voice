@@ -186,9 +186,12 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     <label>Microphone boost <span class="val" id="snd-gain-v"></span>
       <input type="range" id="snd-gain" min="0.5" max="6" step="0.25">
     </label>
+    <div id="browser-only">
     <label class="check"><input type="checkbox" id="snd-agc"> Tablet’s automatic level</label>
     <label class="check"><input type="checkbox" id="snd-ns"> Tablet’s noise reduction</label>
     <p class="hint">Leave these two off. On Android, turning either on usually makes the tablet switch back to its own microphone.</p>
+    <p class="hint">Chrome can’t use the USB lav mic on Android. <a href="https://github.com/petehb/whisper-voice/releases/download/app-latest/gabs-voice.apk">Install the Gabs’ Voice tablet app</a> instead.</p>
+    </div>
     <label>Voice volume <span class="val" id="snd-vol-v"></span>
       <input type="range" id="snd-vol" min="0.5" max="2.5" step="0.1">
     </label>
@@ -302,7 +305,24 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
   }
 
   // ---- microphone ----
+  // Inside the Android app, window.GabsNative records with Android's own recorder (it can use USB mics).
+  const NATIVE = window.GabsNative || null;
+  let levelSink = null;
+  window.__gvLevel = lv => { levelSink && levelSink(lv); };
+  window.__gvDevices = () => { if (state === "sound") startSoundTest(); };
+  window.__gvBack = () => { if (state === "settings" || state === "sound") { stopSoundTest(); show("ready"); } else goHome(); };
+  function setBar(bar, lv) { bar.style.width = Math.round(Math.min(1, lv) * 100) + "%"; }
+  function nativeStart(id, keep) {
+    let res;
+    try { res = JSON.parse(NATIVE.start(id || "auto", cfg.gain, keep)); } catch (e) { res = { ok: false, error: String(e) }; }
+    if (res.ok) { lastTrack = { label: res.label, settings: res, asked: id || "auto" }; updateMicBadge(res.label, res.usb); }
+    return res;
+  }
   async function listMics() {
+    if (NATIVE) {
+      try { return JSON.parse(NATIVE.listInputs()).map(d => ({ kind: "audioinput", deviceId: String(d.id), label: d.name, usb: d.usb })); }
+      catch { return []; }
+    }
     try { return (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput"); }
     catch { return []; }
   }
@@ -315,7 +335,7 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
       const byLabel = cfg.micLabel && mics.find(m => m.label === cfg.micLabel);
       if (byLabel) { cfg.mic = byLabel.deviceId; save("mic"); return byLabel.deviceId; }
     }
-    const usb = mics.find(m => m.label && USB_HINT.test(m.label) && !/^default$|communications/i.test(m.deviceId));
+    const usb = mics.find(m => m.usb || (m.label && USB_HINT.test(m.label) && !/^default$|communications/i.test(m.deviceId)));
     return usb ? usb.deviceId : null;
   }
   async function openMic() {
@@ -346,8 +366,8 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     return raw;
   }
   let lastTrack = null;
-  function updateMicBadge(label) {
-    const usb = USB_HINT.test(label);
+  function updateMicBadge(label, isUsb) {
+    const usb = isUsb ?? USB_HINT.test(label);
     $("mic-dot").classList.toggle("usb", usb);
     $("mic-short").textContent = usb ? "USB mic" : "Tablet mic";
     $("micname").textContent = "Using: " + label;
@@ -402,6 +422,15 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
   async function startListening() {
     if (!cfg.url || !cfg.pass) { openSettings("Add the bridge address and passcode first."); return; }
     stopAudio(); audioCtx();
+    if (NATIVE) {
+      const res = nativeStart(await pickMicId(), true);
+      if (!res.ok) return fail("The microphone isn’t on", res.error === "permission" ? "Allow the microphone when the tablet asks, then tap here" : "Tap to try again. (" + res.error + ")");
+      const r = rec = { native: true, cancelled: false, job: ++job };
+      levelSink = lv => { setBar($("meter"), lv); $("heard").textContent = lv > 0.12 ? "I can hear you" : "\u00a0"; };
+      r.timer = setTimeout(stopListening, 60000);
+      show("listen");
+      return;
+    }
     let ch;
     try { ch = chain(await openMic()); }
     catch (e) { return fail("The microphone isn’t on", "Ask someone to allow the microphone, then tap here"); }
@@ -417,6 +446,18 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
   }
   function stopListening() {
     const r = rec; if (!r) return;
+    if (r.native) {
+      clearTimeout(r.timer); levelSink = null;
+      $("wait-msg").textContent = "Just a moment"; show("wait");
+      setTimeout(() => {
+        const b64 = NATIVE.stop(true);
+        if (r.cancelled) return;
+        const bin = Uint8Array.from(atob(b64 || ""), c => c.charCodeAt(0));
+        r.blob = new Blob([bin], { type: "audio/wav" }); r.ext = "wav";
+        transcribe(r);
+      }, 30);
+      return;
+    }
     clearTimeout(r.timer); r.stopMeter && r.stopMeter();
     if (r.recorder.state === "recording") r.recorder.stop();
     $("wait-msg").textContent = "Just a moment";
@@ -424,6 +465,7 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
   }
   function cancelRecording() {
     const r = rec; if (!r) return;
+    if (r.native) { r.cancelled = true; clearTimeout(r.timer); levelSink = null; NATIVE.stop(false); rec = null; return; }
     r.cancelled = true; clearTimeout(r.timer); r.stopMeter && r.stopMeter();
     if (r.recorder.state === "recording") r.recorder.stop(); else unchain(r.ch);
     rec = null;
@@ -431,9 +473,9 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
 
   async function transcribe(r) {
     rec = null;
-    const blob = new Blob(r.chunks, { type: r.recorder.mimeType || "audio/webm" });
+    const blob = r.blob || new Blob(r.chunks, { type: r.recorder.mimeType || "audio/webm" });
     if (blob.size < 2000) return fail("That was very short", "Tap to try again");
-    const ext = (r.recorder.mimeType || "").includes("mp4") ? "m4a" : "webm";
+    const ext = r.ext || ((r.recorder.mimeType || "").includes("mp4") ? "m4a" : "webm");
     const form = new FormData();
     form.append("file", blob, "whisper." + ext);
     form.append("language", "en");
@@ -516,7 +558,7 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     const auto = new Option("Automatic (use the USB mic when plugged in)", "auto"); sel.add(auto);
     mics.forEach((m, i) => sel.add(new Option(m.label || ("Microphone " + (i + 1)), m.deviceId)));
     sel.value = mics.some(m => m.deviceId === cfg.mic) ? cfg.mic : "auto";
-    const found = mics.filter(m => USB_HINT.test(m.label));
+    const found = mics.filter(m => m.usb || USB_HINT.test(m.label));
     const t = lastTrack;
     $("snd-diag").textContent =
       "In use now: " + (t ? t.label : "none") + "\n" +
@@ -524,14 +566,21 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
            "Settings: " + JSON.stringify(t.settings) + "\n" : "") +
       "\nMicrophones the tablet lists:\n" +
       (mics.length ? mics.map(m => "• " + (m.label || "(no name)") + "  [" + m.deviceId.slice(0, 10) + "…]").join("\n") : "none") +
-      "\n\n" + navigator.userAgent;
+      "\n\n" + (NATIVE ? "Tablet app " + NATIVE.version() : "Browser: " + navigator.userAgent);
     $("snd-status").textContent = !mics.length ? "No microphones found."
-      : (lastTrack && USB_HINT.test(lastTrack.label)) ? "Using the USB mic: " + lastTrack.label
+      : (lastTrack && (lastTrack.settings?.usb || USB_HINT.test(lastTrack.label))) ? "Using the USB mic: " + lastTrack.label
       : found.length ? "USB mic is listed (" + found[0].label + ") but the tablet gave the app: " + (lastTrack ? lastTrack.label : "nothing")
       : "No USB mic showing. Check it’s plugged in firmly, then wait a few seconds.";
   }
   async function startSoundTest() {
     stopSoundTest();
+    if (NATIVE) {
+      const res = nativeStart(await pickMicId(), false);
+      if (res.ok) { soundTest = { native: true }; levelSink = lv => setBar($("snd-meter"), lv); }
+      else $("snd-status").textContent = res.error === "permission" ? "The microphone isn’t allowed yet. Allow it when the tablet asks." : "Couldn’t open the microphone: " + res.error;
+      await fillMicList();
+      return;
+    }
     try {
       const ch = chain(await openMic());
       soundTest = { ch, stop: meterLoop(ch.analyser, $("snd-meter")) };
@@ -540,6 +589,7 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
   }
   function stopSoundTest() {
     if (!soundTest) return;
+    if (soundTest.native) { levelSink = null; NATIVE.stop(false); soundTest = null; return; }
     soundTest.stop(); unchain(soundTest.ch); soundTest = null;
   }
   function syncSoundLabels() {
@@ -555,7 +605,8 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
   };
   $("snd-gain").oninput = e => {
     cfg.gain = +e.target.value; save("gain"); syncSoundLabels();
-    if (soundTest) soundTest.ch.gain.gain.value = cfg.gain;
+    if (NATIVE) NATIVE.setGain(cfg.gain);
+    else if (soundTest) soundTest.ch.gain.gain.value = cfg.gain;
   };
   $("snd-vol").oninput = e => { cfg.vol = +e.target.value; save("vol"); syncSoundLabels(); if (playGain) playGain.gain.value = cfg.vol; };
   $("snd-agc").onchange = async e => { cfg.agc = e.target.checked; save("agc"); await startSoundTest(); };
@@ -640,6 +691,7 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     const m = mics.find(x => x.deviceId === id); if (m && m.label) updateMicBadge(m.label);
   })();
 
+  if (NATIVE) $("browser-only").hidden = true;
   renderFavs();
   if (!cfg.url || !cfg.pass) openSettings("First time here: add the bridge address and passcode."); else show("ready");
 })();
