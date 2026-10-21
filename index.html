@@ -179,11 +179,16 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     <div class="status" id="snd-status"></div>
     <div class="testmeter" aria-hidden="true"><i id="snd-meter"></i></div>
     <p class="hint">Whisper now. The green bar should move about halfway.</p>
+    <details>
+      <summary class="hint">What the tablet reports</summary>
+      <pre id="snd-diag" style="white-space:pre-wrap;font-size:.9rem;margin:8px 0 0"></pre>
+    </details>
     <label>Microphone boost <span class="val" id="snd-gain-v"></span>
       <input type="range" id="snd-gain" min="0.5" max="6" step="0.25">
     </label>
-    <label class="check"><input type="checkbox" id="snd-agc"> Automatic level (evens out loud and quiet)</label>
-    <label class="check"><input type="checkbox" id="snd-ns"> Reduce background noise</label>
+    <label class="check"><input type="checkbox" id="snd-agc"> Tablet’s automatic level</label>
+    <label class="check"><input type="checkbox" id="snd-ns"> Tablet’s noise reduction</label>
+    <p class="hint">Leave these two off. On Android, turning either on usually makes the tablet switch back to its own microphone.</p>
     <label>Voice volume <span class="val" id="snd-vol-v"></span>
       <input type="range" id="snd-vol" min="0.5" max="2.5" step="0.1">
     </label>
@@ -257,8 +262,8 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     mic: store.get("mic", "auto"),        // "auto" or a deviceId
     micLabel: store.get("micLabel", ""),
     gain: store.get("gain", 2),
-    agc: store.get("agc", true),
-    ns: store.get("ns", true),
+    agc: store.get("agc", false),
+    ns: store.get("ns", false),
     vol: store.get("vol", 1.5)
   };
   // One-time: make sure there is a Help button for people who saved the old list.
@@ -266,6 +271,9 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     if (!cfg.favs.some(f => /help/i.test(f))) cfg.favs.unshift("I need help");
     store.set("favs", cfg.favs); store.set("helpAdded", true);
   }
+  // One-time: Chrome on Android drops to the tablet mic when it cleans up the sound,
+  // so switch its clean-up off. The app's own boost does the work instead.
+  if (!store.get("micv2", false)) { cfg.agc = false; cfg.ns = false; store.set("agc", false); store.set("ns", false); store.set("micv2", true); }
   const save = (...keys) => keys.forEach(k => store.set(k, cfg[k]));
 
   // ---- screens ----
@@ -311,7 +319,9 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     return usb ? usb.deviceId : null;
   }
   async function openMic() {
-    const base = { echoCancellation: false, noiseSuppression: cfg.ns, autoGainControl: cfg.agc, channelCount: 1 };
+    const base = { echoCancellation: false, noiseSuppression: cfg.ns, autoGainControl: cfg.agc,
+                   googEchoCancellation: false, googNoiseSuppression: cfg.ns, googAutoGainControl: cfg.agc,
+                   voiceIsolation: false };
     const id = await pickMicId();
     let raw;
     try {
@@ -329,10 +339,13 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
         raw = await navigator.mediaDevices.getUserMedia({ audio: { ...base, deviceId: { exact: again } } });
       }
     }
-    const label = raw.getAudioTracks()[0]?.label || "Microphone";
+    const track = raw.getAudioTracks()[0];
+    const label = track?.label || "Microphone";
+    lastTrack = { label, settings: track?.getSettings ? track.getSettings() : {}, asked: id || "default" };
     updateMicBadge(label);
     return raw;
   }
+  let lastTrack = null;
   function updateMicBadge(label) {
     const usb = USB_HINT.test(label);
     $("mic-dot").classList.toggle("usb", usb);
@@ -504,8 +517,17 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
     mics.forEach((m, i) => sel.add(new Option(m.label || ("Microphone " + (i + 1)), m.deviceId)));
     sel.value = mics.some(m => m.deviceId === cfg.mic) ? cfg.mic : "auto";
     const found = mics.filter(m => USB_HINT.test(m.label));
+    const t = lastTrack;
+    $("snd-diag").textContent =
+      "In use now: " + (t ? t.label : "none") + "\n" +
+      (t ? "Asked for: " + (t.asked === "default" ? "default" : t.asked.slice(0, 10) + "…") + "\n" +
+           "Settings: " + JSON.stringify(t.settings) + "\n" : "") +
+      "\nMicrophones the tablet lists:\n" +
+      (mics.length ? mics.map(m => "• " + (m.label || "(no name)") + "  [" + m.deviceId.slice(0, 10) + "…]").join("\n") : "none") +
+      "\n\n" + navigator.userAgent;
     $("snd-status").textContent = !mics.length ? "No microphones found."
-      : found.length ? "USB mic found: " + found[0].label
+      : (lastTrack && USB_HINT.test(lastTrack.label)) ? "Using the USB mic: " + lastTrack.label
+      : found.length ? "USB mic is listed (" + found[0].label + ") but the tablet gave the app: " + (lastTrack ? lastTrack.label : "nothing")
       : "No USB mic showing. Check it’s plugged in firmly, then wait a few seconds.";
   }
   async function startSoundTest() {
