@@ -30,6 +30,7 @@
           --listen:#e0705a; --soft:#25383a; --line:#35494b; color-scheme: dark; }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body {
   background: var(--bg); color: var(--ink); font-family: var(--font);
@@ -478,7 +479,8 @@ button:focus-visible { outline: 4px solid var(--listen); outline-offset: 4px; }
   function renderFavs() {
     document.querySelectorAll(".favs").forEach(box => {
       box.innerHTML = "";
-      cfg.favs.forEach(t => {
+      const order = [...cfg.favs.filter(t => /help/i.test(t)), ...cfg.favs.filter(t => !/help/i.test(t))];
+      order.forEach(t => {
         const b = document.createElement("button"); b.textContent = t;
         if (/help/i.test(t)) b.className = "help";
         b.addEventListener("click", () => speak(t));
